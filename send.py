@@ -110,20 +110,34 @@ class WhatsAppBot:
     
     def handle_kirim(self, data):
         """Menangani perintah !kirim"""
-        # Ekstrak nomor dan pesan
-        parts = data["text"].split(" ", 2)
-        if len(parts) < 3:
+        # Ekstrak argumen setelah !kirim
+        args_text = data["text"].replace("!kirim", "").strip()
+        
+        parts = args_text.split(" ")
+        phone_parts = []
+        message_parts = []
+        
+        number_ended = False
+        for part in parts:
+            # Once we hit something that is not a number part, everything else is the message
+            if number_ended or not re.match(r'^[+\d][\d-]*$', part):
+                number_ended = True
+                message_parts.append(part)
+            else:
+                phone_parts.append(part)
+                
+        if not phone_parts or not message_parts:
             return {
                 "type": "reply",
                 "to": data["from"],
-                "text": "❌ Format: !kirim <nomor> <pesan>\nContoh: !kirim 081234567890 Halo apa kabar?"
+                "text": "❌ Format: !kirim <nomor> <pesan>\nContoh: !kirim +62 812-3456-7890 Halo"
             }
-        
-        phone_number = parts[1]
-        message_text = parts[2]
+            
+        phone_number_raw = " ".join(phone_parts)
+        message_text = " ".join(message_parts)
         
         # Format nomor ke format WhatsApp
-        phone_number = re.sub(r'[^\d]', '', phone_number)
+        phone_number = re.sub(r'[^\d]', '', phone_number_raw)
         if phone_number.startswith('0'):
             phone_number = '62' + phone_number[1:]
 

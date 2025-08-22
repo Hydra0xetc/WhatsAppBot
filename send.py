@@ -43,7 +43,7 @@ class WhatsAppBot:
         return {
             "type": "reply",
             "to": data["from"],
-            "text": f"Halo juga {data.get('name', 'Unknown')}!\nApa kabar?"
+            "text": f"Halo juga {data.get('name', 'Unknown')}! 😊\nApa kabar?"
         }
     
     def handle_help(self, data):
@@ -67,7 +67,7 @@ class WhatsAppBot:
     def handle_info(self, data):
         """Menangani perintah !info"""
         status = "Terhubung" if self.is_connected else "Terputus"
-        info_text = ""
+        info_text = "🤖 *BOT WHATSAPP INFORMATION* 🤖\n\n"
         info_text += f"Status: {status}\n"
         info_text += f"User ID: {self.user_id or 'Unknown'}\n"
         info_text += "Dibuat dengan Baileys (JS) + Python\n"
@@ -130,6 +130,7 @@ class WhatsAppBot:
         message_text = parts[2]
         
         # Format nomor ke format WhatsApp
+        phone_number = re.sub(r'[^\d]', '', phone_number)
         if phone_number.startswith('0'):
             phone_number = '62' + phone_number[1:]
 
@@ -163,6 +164,7 @@ class WhatsAppBot:
                 }
             
             phone_number = parts[1].strip()
+            phone_number = re.sub(r'[^\d]', '', phone_number)
             if phone_number.startswith('0'):
                 phone_number = '62' + phone_number[1:]
 

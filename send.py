@@ -12,7 +12,7 @@ class WhatsAppBot:
             '!time': self.handle_time,
             '!broadcast': self.handle_broadcast,
             '!kirim': self.handle_kirim,
-            '!cek_broadcast': self.handle_cek_broadcast,
+            '!cek': self.handle_cek_broadcast,
         }
 
         # Data untuk broadcast (simpan di file)
@@ -45,7 +45,7 @@ class WhatsAppBot:
         help_text += "• !broadcast <pesan> - Kirim pesan ke semua\n"
         help_text += "• !kirim <nomor> <pesan> - Kirim pesan ke nomor tertentu\n"
         help_text += "• !tambah_broadcast <nomor> - Tambah nomor ke broadcast\n"
-        help_text += "• !cek_broadcast - Cek daftar broadcast\n"
+        help_text += "• !cek - Cek daftar broadcast\n"
         
         return {
             "type": "reply",
@@ -161,13 +161,13 @@ class WhatsAppBot:
                 return self.commands[command](data)
         
         # Tangani penambahan ke broadcast list
-        if text.startswith('!tambah_broadcast'):
+        if text.startswith('!tambah'):
             parts = text.split(" ", 1)
             if len(parts) < 2:
                 return {
                     "type": "reply",
                     "to": data["from"],
-                    "text": "❌ Format: !tambah_broadcast <nomor>"
+                    "text": "❌ Format: !tambah <nomor>"
                 }
             
             phone_number = parts[1].strip()

@@ -43,7 +43,7 @@ class WhatsAppBot:
         return {
             "type": "reply",
             "to": data["from"],
-            "text": f"Halo juga {data.get('name', 'Unknown')}! 😊\nApa kabar?"
+            "text": f"Halo juga {data.get('name', 'Unknown')}!\nApa kabar?"
         }
     
     def handle_help(self, data):
@@ -67,7 +67,7 @@ class WhatsAppBot:
     def handle_info(self, data):
         """Menangani perintah !info"""
         status = "Terhubung" if self.is_connected else "Terputus"
-        info_text = "🤖 *BOT WHATSAPP INFORMATION* 🤖\n\n"
+        info_text = ""
         info_text += f"Status: {status}\n"
         info_text += f"User ID: {self.user_id or 'Unknown'}\n"
         info_text += "Dibuat dengan Baileys (JS) + Python\n"
@@ -112,7 +112,7 @@ class WhatsAppBot:
         return {
             "type": "broadcast",
             "recipients": self.broadcast_list,
-            "text": f"📢 *BROADCAST*\n\n{message_text}"
+            "text": f"{message_text}"
         }
     
     def handle_kirim(self, data):
@@ -123,13 +123,16 @@ class WhatsAppBot:
             return {
                 "type": "reply",
                 "to": data["from"],
-                "text": "❌ Format: !kirim <nomor> <pesan>\nContoh: !kirim 6281234567890 Halo apa kabar?"
+                "text": "❌ Format: !kirim <nomor> <pesan>\nContoh: !kirim 081234567890 Halo apa kabar?"
             }
         
         phone_number = parts[1]
         message_text = parts[2]
         
         # Format nomor ke format WhatsApp
+        if phone_number.startswith('0'):
+            phone_number = '62' + phone_number[1:]
+
         if not phone_number.endswith('@s.whatsapp.net'):
             phone_number = phone_number + '@s.whatsapp.net'
         
@@ -160,6 +163,9 @@ class WhatsAppBot:
                 }
             
             phone_number = parts[1].strip()
+            if phone_number.startswith('0'):
+                phone_number = '62' + phone_number[1:]
+
             if not phone_number.endswith('@s.whatsapp.net'):
                 phone_number = phone_number + '@s.whatsapp.net'
             

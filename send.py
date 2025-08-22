@@ -15,13 +15,6 @@ class WhatsAppBot:
             '!broadcast': self.handle_broadcast,
             '!kirim': self.handle_kirim,
         }
-        
-        with open("./admin.txt", "r") as f:
-            self.admins = [
-                line.strip()
-                for line in f
-                if line.strip() and not line.strip().startswith("#")
-            ]
 
         # Data untuk broadcast (simpan di file)
         self.broadcast_list = []
@@ -45,10 +38,6 @@ class WhatsAppBot:
             for recipient in self.broadcast_list:
                 f.write(recipient + '\n')
     
-    def is_admin(self, user_id):
-        """Cek apakah pengguna adalah admin"""
-        return user_id in self.admins
-    
     def handle_halo(self, data):
         """Menangani perintah !halo"""
         return {
@@ -65,12 +54,9 @@ class WhatsAppBot:
         help_text += "• !help - Menampilkan bantuan\n"
         help_text += "• !info - Informasi bot\n"
         help_text += "• !time - Waktu saat ini\n"
-        
-        if self.is_admin(data["from"]):
-            help_text += "\n*Perintah Admin:*\n"
-            help_text += "• !broadcast <pesan> - Kirim pesan ke semua\n"
-            help_text += "• !kirim <nomor> <pesan> - Kirim pesan ke nomor tertentu\n"
-            help_text += "• !tambah_broadcast <nomor> - Tambah nomor ke broadcast\n"
+        help_text += "• !broadcast <pesan> - Kirim pesan ke semua\n"
+        help_text += "• !kirim <nomor> <pesan> - Kirim pesan ke nomor tertentu\n"
+        help_text += "• !tambah_broadcast <nomor> - Tambah nomor ke broadcast\n"
         
         return {
             "type": "reply",
@@ -106,13 +92,6 @@ class WhatsAppBot:
     
     def handle_broadcast(self, data):
         """Menangani perintah !broadcast"""
-        if not self.is_admin(data["from"]):
-            return {
-                "type": "reply",
-                "to": data["from"],
-                "text": "❌ Maaf, hanya admin yang bisa menggunakan perintah ini."
-            }
-        
         # Ekstrak pesan broadcast
         message_text = data["text"].replace("!broadcast", "").strip()
         if not message_text:
@@ -138,13 +117,6 @@ class WhatsAppBot:
     
     def handle_kirim(self, data):
         """Menangani perintah !kirim"""
-        if not self.is_admin(data["from"]):
-            return {
-                "type": "reply",
-                "to": data["from"],
-                "text": "❌ Maaf, hanya admin yang bisa menggunakan perintah ini."
-            }
-        
         # Ekstrak nomor dan pesan
         parts = data["text"].split(" ", 2)
         if len(parts) < 3:
@@ -177,8 +149,8 @@ class WhatsAppBot:
             if command in self.commands:
                 return self.commands[command](data)
         
-        # Tangani penambahan ke broadcast list (hanya admin)
-        if text.startswith('!tambah_broadcast') and self.is_admin(data["from"]):
+        # Tangani penambahan ke broadcast list
+        if text.startswith('!tambah_broadcast'):
             parts = text.split(" ", 1)
             if len(parts) < 2:
                 return {

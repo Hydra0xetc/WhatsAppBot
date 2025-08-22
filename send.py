@@ -8,12 +8,11 @@ import time
 class WhatsAppBot:
     def __init__(self):
         self.commands = {
-            '!halo': self.handle_halo,
             '!help': self.handle_help,
-            '!info': self.handle_info,
             '!time': self.handle_time,
             '!broadcast': self.handle_broadcast,
             '!kirim': self.handle_kirim,
+            '!cek_broadcast': self.handle_cek_broadcast,
         }
 
         # Data untuk broadcast (simpan di file)
@@ -38,25 +37,15 @@ class WhatsAppBot:
             for recipient in self.broadcast_list:
                 f.write(recipient + '\n')
     
-    def handle_halo(self, data):
-        """Menangani perintah !halo"""
-        return {
-            "type": "reply",
-            "to": data["from"],
-            "text": f"Halo juga {data.get('name', 'Unknown')}! 😊\nApa kabar?"
-        }
-    
     def handle_help(self, data):
         """Menangani perintah !help"""
-        help_text = ""
-        help_text += "Daftar perintah yang tersedia:\n"
-        help_text += "• !halo - Sapaan bot\n"
+        help_text  = "Daftar perintah yang tersedia:\n"
         help_text += "• !help - Menampilkan bantuan\n"
-        help_text += "• !info - Informasi bot\n"
         help_text += "• !time - Waktu saat ini\n"
         help_text += "• !broadcast <pesan> - Kirim pesan ke semua\n"
         help_text += "• !kirim <nomor> <pesan> - Kirim pesan ke nomor tertentu\n"
         help_text += "• !tambah_broadcast <nomor> - Tambah nomor ke broadcast\n"
+        help_text += "• !cek_broadcast - Cek daftar broadcast\n"
         
         return {
             "type": "reply",
@@ -64,19 +53,23 @@ class WhatsAppBot:
             "text": help_text
         }
     
-    def handle_info(self, data):
-        """Menangani perintah !info"""
-        status = "Terhubung" if self.is_connected else "Terputus"
-        info_text = ""
-        info_text += f"Status: {status}\n"
-        info_text += f"User ID: {self.user_id or 'Unknown'}\n"
-        info_text += "Dibuat dengan Baileys (JS) + Python\n"
-        info_text += "Logika bot diproses di Python"
+    def handle_cek_broadcast(self, data):
+        """Menangani perintah !cek_broadcast"""
+        if not self.broadcast_list:
+            return {
+                "type": "reply",
+                "to": data["from"],
+                "text": "❌ Daftar broadcast kosong."
+            }
         
+        list_text = "Daftar nomor dalam broadcast:\n"
+        for i, recipient in enumerate(self.broadcast_list, 1):
+            list_text += f"{i}. {recipient.replace('@s.whatsapp.net', '')}\n"
+            
         return {
             "type": "reply",
             "to": data["from"],
-            "text": info_text
+            "text": list_text
         }
     
     def handle_time(self, data):
@@ -178,13 +171,13 @@ class WhatsAppBot:
                 return {
                     "type": "reply",
                     "to": data["from"],
-                    "text": f"✅ Nomor {phone_number} berhasil ditambahkan ke daftar broadcast."
+                    "text": f"✅ Nomor {phone_number.replace('@s.whatsapp.net', '')} berhasil ditambahkan ke daftar broadcast."
                 }
             else:
                 return {
                     "type": "reply",
                     "to": data["from"],
-                    "text": f"❌ Nomor {phone_number} sudah ada dalam daftar broadcast."
+                    "text": f"❌ Nomor {phone_number.replace('@s.whatsapp.net', '')} sudah ada dalam daftar broadcast."
                 }
         
         # Tidak merespons jika bukan perintah khusus

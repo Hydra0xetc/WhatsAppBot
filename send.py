@@ -67,7 +67,7 @@ class WhatsAppBot:
     def handle_info(self, data):
         """Menangani perintah !info"""
         status = "Terhubung" if self.is_connected else "Terputus"
-        info_text = "🤖 *BOT WHATSAPP INFORMATION* 🤖\n\n"
+        info_text = ""
         info_text += f"Status: {status}\n"
         info_text += f"User ID: {self.user_id or 'Unknown'}\n"
         info_text += "Dibuat dengan Baileys (JS) + Python\n"

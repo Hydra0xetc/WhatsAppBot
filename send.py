@@ -44,7 +44,7 @@ class WhatsAppBot:
         help_text += "• !time - Waktu saat ini\n"
         help_text += "• !broadcast <pesan> - Kirim pesan ke semua\n"
         help_text += "• !kirim <nomor> <pesan> - Kirim pesan ke nomor tertentu\n"
-        help_text += "• !tambah_broadcast <nomor> - Tambah nomor ke broadcast\n"
+        help_text += "• !tambah <nomor> - Tambah nomor ke broadcast\n"
         help_text += "• !cek - Cek daftar broadcast\n"
         
         return {

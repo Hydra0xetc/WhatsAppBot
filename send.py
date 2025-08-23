@@ -40,7 +40,7 @@ class WhatsAppBot:
     
     def handle_help(self, data):
         """Menangani perintah !help"""
-        help_text  = "Daftar perintah yang tersedia:\n"
+        help_text  = "Daftar perintah yang tersedia:\n\n"
         help_text += "• *!help* - Menampilkan bantuan\n"
         help_text += "• *!time* - Waktu saat ini\n"
         help_text += "• *!broadcast* <pesan> - Kirim pesan ke semua\n"

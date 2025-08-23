@@ -4,6 +4,8 @@ import re
 import datetime
 import threading
 import time
+import os
+import base64
 
 class WhatsAppBot:
     def __init__(self):
@@ -39,13 +41,13 @@ class WhatsAppBot:
     
     def handle_help(self, data):
         """Menangani perintah !help"""
-        help_text  = "*Daftar perintah yang tersedia:*\n\n"
-        help_text += "*• !help* - Menampilkan bantuan\n"
-        help_text += "*• !time* - Waktu saat ini\n"
-        help_text += "*• !broadcast* <pesan> - Kirim pesan ke semua\n"
-        help_text += "*• !kirim* <nomor> <pesan> - Kirim pesan ke nomor tertentu\n"
-        help_text += "*• !tambah* <nomor> - Tambah nomor ke broadcast\n"
-        help_text += "*• !cek* - Cek daftar broadcast\n"
+        help_text  = "*Daftar perintah yang tersedia:*\n"
+        help_text += "*• !help - Menampilkan bantuan*\n"
+        help_text += "*• !time - Waktu saat ini*\n"
+        help_text += "*• !broadcast <pesan> - Kirim pesan ke semua*\n"
+        help_text += "*• !kirim <nomor> <pesan> - Kirim pesan ke nomor tertentu*\n"
+        help_text += "*• !tambah <nomor> - Tambah nomor ke broadcast*\n"
+        help_text += "*• !cek - Cek daftar broadcast*\n"
         
         return {
             "type": "reply",
@@ -62,7 +64,7 @@ class WhatsAppBot:
                 "text": "❌ Daftar broadcast kosong."
             }
         
-        list_text = "*Daftar nomor dalam broadcast:*\n\n"
+        list_text = "*Daftar nomor dalam broadcast:*\n"
         for i, recipient in enumerate(self.broadcast_list, 1):
             list_text += f"{i}. {recipient.replace('@s.whatsapp.net', '')}\n"
             
@@ -87,11 +89,18 @@ class WhatsAppBot:
         """Menangani perintah !broadcast"""
         # Ekstrak pesan broadcast
         message_text = data["text"].replace("!broadcast", "").strip()
-        if not message_text:
+        
+        # Cek apakah ada media yang dikirim bersama perintah
+        has_media = data.get("has_media", False)
+        media_type = data.get("media_type")
+        media_buffer = data.get("media_buffer")
+        media_mimetype = data.get("media_mimetype")
+        
+        if not message_text and not has_media:
             return {
                 "type": "reply",
                 "to": data["from"],
-                "text": "❌ Format: !broadcast <pesan>"
+                "text": "❌ Format: !broadcast <pesan> atau kirim media dengan caption !broadcast"
             }
         
         if not self.broadcast_list:
@@ -101,11 +110,28 @@ class WhatsAppBot:
                 "text": "❌ Daftar broadcast kosong. Gunakan !tambah <nomor>"
             }
         
-        # Kirim broadcast
+        # DEBUG: Print media info
+        print(f"DEBUG Broadcast - Has media: {has_media}")
+        print(f"DEBUG Broadcast - Media type: {media_type}")
+        
+        # Jika ada media, kirim broadcast dengan media
+        if has_media and media_buffer and media_type:
+            return {
+                "type": "broadcast",
+                "recipients": self.broadcast_list,
+                "text": message_text,
+                "has_media": True,
+                "media_type": media_type,
+                "media_buffer": media_buffer,
+                "media_mimetype": media_mimetype,
+                "caption": message_text
+            }
+        
+        # Kirim broadcast teks biasa
         return {
             "type": "broadcast",
             "recipients": self.broadcast_list,
-            "text": f"{message_text}"
+            "text": message_text
         }
     
     def handle_kirim(self, data):
@@ -126,7 +152,7 @@ class WhatsAppBot:
             else:
                 phone_parts.append(part)
                 
-        if not phone_parts or not message_parts:
+        if not phone_parts:
             return {
                 "type": "reply",
                 "to": data["from"],
@@ -144,6 +170,32 @@ class WhatsAppBot:
         if not phone_number.endswith('@s.whatsapp.net'):
             phone_number = phone_number + '@s.whatsapp.net'
         
+        # Cek apakah ada media yang dikirim bersama perintah
+        has_media = data.get("has_media", False)
+        media_type = data.get("media_type")
+        media_buffer = data.get("media_buffer")
+        media_mimetype = data.get("media_mimetype")
+        
+        # DEBUG: Print info
+        print(f"DEBUG Kirim - Has media: {has_media}")
+        print(f"DEBUG Kirim - Media type: {media_type}")
+        print(f"DEBUG Kirim - Phone: {phone_number}")
+        print(f"DEBUG Kirim - Message: {message_text}")
+        
+        # Jika ada media, kirim dengan media
+        if has_media and media_buffer and media_type:
+            return {
+                "type": "send_message",
+                "to": phone_number,
+                "text": message_text,
+                "has_media": True,
+                "media_type": media_type,
+                "media_buffer": media_buffer,
+                "media_mimetype": media_mimetype,
+                "caption": message_text
+            }
+        
+        # Kirim pesan teks biasa
         return {
             "type": "send_message",
             "to": phone_number,
@@ -153,6 +205,10 @@ class WhatsAppBot:
     def process_message(self, data):
         """Memproses pesan dan mengembalikan respons"""
         text = data.get("text", "").strip()
+        
+        # DEBUG: Print received data
+        print(f"DEBUG Received text: {text}")
+        print(f"DEBUG Has media: {data.get('has_media')}")
         
         # Tangani perintah khusus
         if text.startswith('!'):

@@ -2,13 +2,15 @@ const { spawn } = require('child_process');
 const {
     default: makeWaSocket,
     useMultiFileAuthState,
-    DisconnectReason
+    DisconnectReason,
+    downloadMediaMessage
 } = require("@whiskeysockets/baileys");
 const chalk = require("chalk");
 const qrcode = require("qrcode-terminal");
 const inquirer = require("inquirer");
 const fs = require('fs');
 const path = require('path');
+const pino = require("pino");
 
 // Buat folder untuk menyimpan data
 if (!fs.existsSync('data')) {
@@ -26,6 +28,40 @@ if (!fs.existsSync('data')) {
 
     let conn = makeWaSocket(connectionOptions);
     let pythonProcess = null;
+
+    // Fungsi untuk mendownload media dari pesan menggunakan downloadMediaMessage
+    async function downloadMedia(m) {
+        try {
+            // Cek jika pesan mengandung media
+            if (!m.message?.imageMessage && !m.message?.videoMessage) {
+                return null;
+            }
+
+            // Download media sebagai buffer
+            const buffer = await downloadMediaMessage(
+                m,
+                "buffer",
+                {},
+                { logger: pino({ level: "silent" }) }
+            );
+
+            let mediaType = null;
+            if (m.message.imageMessage) {
+                mediaType = 'image';
+            } else if (m.message.videoMessage) {
+                mediaType = 'video';
+            }
+
+            return {
+                type: mediaType,
+                buffer: buffer.toString('base64'), // Convert to base64 untuk JSON
+                mimetype: m.message.imageMessage?.mimetype || m.message.videoMessage?.mimetype || 'image/jpeg'
+            };
+        } catch (e) {
+            console.error('Error downloading media:', e);
+            return null;
+        }
+    }
 
     // Fungsi untuk memulai proses Python
     function startPythonProcess() {
@@ -50,14 +86,62 @@ if (!fs.existsSync('data')) {
                     console.log(chalk.blue('Response from Python:'), response);
                     
                     if (response.type === 'reply') {
+                        // Balas ke pengirim
                         conn.sendMessage(response.to, { text: response.text });
-                    } else if (response.type === 'send_message') {
-                        conn.sendMessage(response.to, { text: response.text });
-                    } else if (response.type === 'broadcast') {
-                        // Kirim pesan broadcast ke semua kontak atau grup
+                    } 
+                    else if (response.type === 'send_message') {
+                        // Kirim ke nomor tertentu (!kirim)
+                        if (response.has_media && response.media_buffer) {
+                            // Kirim media dengan caption
+                            const buffer = Buffer.from(response.media_buffer, 'base64');
+                            
+                            if (response.media_type === 'image') {
+                                conn.sendMessage(response.to, {
+                                    image: buffer,
+                                    caption: response.caption || '',
+                                    mimetype: response.media_mimetype || 'image/jpeg'
+                                });
+                            } else if (response.media_type === 'video') {
+                                conn.sendMessage(response.to, {
+                                    video: buffer,
+                                    caption: response.caption || '',
+                                    mimetype: response.media_mimetype || 'video/mp4'
+                                });
+                            }
+                            console.log(chalk.green(`Media sent to ${response.to}`));
+                        } else {
+                            // Kirim teks biasa
+                            conn.sendMessage(response.to, { text: response.text });
+                            console.log(chalk.green(`Message sent to ${response.to}`));
+                        }
+                    } 
+                    else if (response.type === 'broadcast') {
+                        // Kirim broadcast ke semua (!broadcast)
+                        console.log(chalk.yellow(`Broadcasting to ${response.recipients.length} recipients`));
+                        
                         response.recipients.forEach(recipient => {
-                            conn.sendMessage(recipient, { text: response.text });
+                            if (response.has_media && response.media_buffer) {
+                                const buffer = Buffer.from(response.media_buffer, 'base64');
+                                
+                                if (response.media_type === 'image') {
+                                    conn.sendMessage(recipient, {
+                                        image: buffer,
+                                        caption: response.caption || '',
+                                        mimetype: response.media_mimetype || 'image/jpeg'
+                                    });
+                                } else if (response.media_type === 'video') {
+                                    conn.sendMessage(recipient, {
+                                        video: buffer,
+                                        caption: response.caption || '',
+                                        mimetype: response.media_mimetype || 'video/mp4'
+                                    });
+                                }
+                            } else {
+                                conn.sendMessage(recipient, { text: response.text });
+                            }
                         });
+                        
+                        console.log(chalk.green('Broadcast completed'));
                     }
                 } catch (error) {
                     // Jika bukan JSON, tampilkan sebagai log biasa
@@ -179,8 +263,25 @@ if (!fs.existsSync('data')) {
             if (!m.message) return;
 
             const sender = m.key.remoteJid; // id pengirim
-            const text = m.message.conversation || m.message.extendedTextMessage?.text || "";
+            const text = m.message.conversation || 
+                        m.message.extendedTextMessage?.text || 
+                        m.message.imageMessage?.caption ||
+                        m.message.videoMessage?.caption ||
+                        "";
             const name = m.pushName || "Unknown";
+
+            // Cek jika pesan mengandung media
+            let mediaData = null;
+            if (m.message?.imageMessage || m.message?.videoMessage) {
+                console.log(chalk.cyan('Media detected, downloading...'));
+                mediaData = await downloadMedia(m);
+                
+                if (mediaData) {
+                    console.log(chalk.green('Media downloaded successfully'));
+                } else {
+                    console.log(chalk.red('Failed to download media'));
+                }
+            }
 
             // Kirim data pesan ke Python
             const messageData = {
@@ -188,10 +289,21 @@ if (!fs.existsSync('data')) {
                 from: sender,
                 text: text,
                 name: name,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                has_media: mediaData !== null,
+                media_type: mediaData?.type,
+                media_buffer: mediaData?.buffer, // base64 string
+                media_mimetype: mediaData?.mimetype
             };
             
             sendToPython(messageData);
+            
+            // Log pesan masuk
+            if (mediaData) {
+                console.log(chalk.magenta(`Media received from ${name}: ${mediaData.type}`));
+            } else if (text) {
+                console.log(chalk.magenta(`Message from ${name}: ${text}`));
+            }
         });
         // -----------------------------
 

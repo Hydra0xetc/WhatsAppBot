@@ -1,4 +1,5 @@
 const { spawn } = require('child_process');
+const crypto = require('crypto');
 const {
     default: makeWaSocket,
     useMultiFileAuthState,
@@ -29,7 +30,7 @@ if (!fs.existsSync('data')) {
     let conn = makeWaSocket(connectionOptions);
     let pythonProcess = null;
 
-    // Fungsi untuk mendownload media dan menyimpannya ke file sementara
+    // Fungsi untuk mendownload media dengan caching
     async function downloadMedia(m) {
         try {
             if (!m.message?.imageMessage && !m.message?.videoMessage) {
@@ -46,10 +47,20 @@ if (!fs.existsSync('data')) {
             const mediaType = m.message.imageMessage ? 'image' : 'video';
             const mimetype = m.message.imageMessage?.mimetype || m.message.videoMessage?.mimetype;
             const extension = mimetype.split('/')[1];
-            const filename = `temp_${Date.now()}.${extension}`;
+            
+            // Buat hash dari buffer media
+            const hash = crypto.createHash('sha256').update(buffer).digest('hex');
+            const filename = `${hash}.${extension}`;
             const filepath = path.join('data', filename);
 
-            fs.writeFileSync(filepath, buffer);
+            // Cek jika file sudah ada (cache hit)
+            if (fs.existsSync(filepath)) {
+                console.log(chalk.blue(`Cache hit for media ${filename}, skipping download.`));
+            } else {
+                // Simpan file jika belum ada (cache miss)
+                fs.writeFileSync(filepath, buffer);
+                console.log(chalk.green(`Media saved to ${filepath}`));
+            }
 
             return {
                 type: mediaType,
@@ -108,7 +119,6 @@ if (!fs.existsSync('data')) {
                                 });
                             }
                             console.log(chalk.green(`Media sent to ${response.to}`));
-                            fs.unlinkSync(response.media_path); // Hapus file sementara
                         } else {
                             // Kirim teks biasa
                             conn.sendMessage(response.to, { text: response.text });
@@ -140,10 +150,6 @@ if (!fs.existsSync('data')) {
                                 conn.sendMessage(recipient, { text: response.text });
                             }
                         });
-                        
-                        if (response.has_media && response.media_path) {
-                            fs.unlinkSync(response.media_path); // Hapus file sementara
-                        }
                         console.log(chalk.green('Broadcast completed'));
                     }
                 } catch (error) {
@@ -200,7 +206,7 @@ if (!fs.existsSync('data')) {
                         name: "waNumber",
                         message: chalk.blue("Masukkan nomor WhatsApp anda:"),
                         validate: input => {
-                            if (!/^\d+$/.test(input)) {
+                            if (!/\d+$/.test(input)) {
                                 return "Masukkan angka saja";
                             }
                             if (input.length < 8) {

@@ -40,13 +40,13 @@ class WhatsAppBot:
     
     def handle_help(self, data):
         """Menangani perintah !help"""
-        help_text  = "*Daftar perintah yang tersedia:*\n"
-        help_text += "*• !help - Menampilkan bantuan*\n"
-        help_text += "*• !time - Waktu saat ini*\n"
-        help_text += "*• !broadcast <pesan> - Kirim pesan ke semua*\n"
-        help_text += "*• !kirim <nomor> <pesan> - Kirim pesan ke nomor tertentu*\n"
-        help_text += "*• !tambah <nomor> - Tambah nomor ke broadcast*\n"
-        help_text += "*• !cek - Cek daftar broadcast*\n"
+        help_text  = "Daftar perintah yang tersedia:\n"
+        help_text += "• *!help* - Menampilkan bantuan\n"
+        help_text += "• *!time* - Waktu saat ini\n"
+        help_text += "• *!broadcast* <pesan> - Kirim pesan ke semua\n"
+        help_text += "• *!kirim* <nomor> <pesan> - Kirim pesan ke nomor tertentu\n"
+        help_text += "• *!tambah* <nomor> - Tambah nomor ke broadcast\n"
+        help_text += "• *!cek* - Cek daftar broadcast\n"
         
         return {
             "type": "reply",
@@ -63,9 +63,9 @@ class WhatsAppBot:
                 "text": "❌ Daftar broadcast kosong."
             }
         
-        list_text = "*Daftar nomor dalam broadcast:*\n"
+        list_text = "*Daftar nomor dalam broadcast:*\n\n"
         for i, recipient in enumerate(self.broadcast_list, 1):
-            list_text += f"{i}. {recipient.replace('@s.whatsapp.net', '')}\n"
+            list_text += f"{i}. {recipient.replace('@s.whatsapp.net', '')}"
             
         return {
             "type": "reply",

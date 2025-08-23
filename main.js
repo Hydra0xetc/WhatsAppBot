@@ -30,41 +30,54 @@ if (!fs.existsSync('data')) {
     let conn = makeWaSocket(connectionOptions);
     let pythonProcess = null;
 
-    // Fungsi untuk mendownload media dengan caching
+    // Fungsi untuk mendownload media dengan streaming dan caching
     async function downloadMedia(m) {
         try {
             if (!m.message?.imageMessage && !m.message?.videoMessage) {
                 return null;
             }
 
-            const buffer = await downloadMediaMessage(
-                m,
-                "buffer",
-                {},
-                { logger: pino({ level: "silent" }) }
-            );
-
             const mediaType = m.message.imageMessage ? 'image' : 'video';
             const mimetype = m.message.imageMessage?.mimetype || m.message.videoMessage?.mimetype;
             const extension = mimetype.split('/')[1];
             
-            // Buat hash dari buffer media
-            const hash = crypto.createHash('sha256').update(buffer).digest('hex');
-            const filename = `${hash}.${extension}`;
-            const filepath = path.join('data', filename);
+            // Path file sementara
+            const tempPath = path.join('data', `temp_${Date.now()}.${extension}`);
 
-            // Cek jika file sudah ada (cache hit)
-            if (fs.existsSync(filepath)) {
-                console.log(chalk.blue(`Cache hit for media ${filename}, skipping download.`));
+            // Download media sebagai stream ke file sementara
+            const stream = await downloadMediaMessage(
+                m,
+                "stream",
+                {},
+                { logger: pino({ level: "silent" }) }
+            );
+
+            const writable = fs.createWriteStream(tempPath);
+            await new Promise((resolve, reject) => {
+                stream.pipe(writable);
+                stream.on('end', resolve);
+                stream.on('error', reject);
+            });
+
+            // Buat hash dari file yang sudah diunduh
+            const fileBuffer = fs.readFileSync(tempPath);
+            const hash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+            const finalFilename = `${hash}.${extension}`;
+            const finalFilepath = path.join('data', finalFilename);
+
+            // Cek jika file dengan hash yang sama sudah ada
+            if (fs.existsSync(finalFilepath)) {
+                console.log(chalk.blue(`Cache hit for media ${finalFilename}, skipping save.`));
+                fs.unlinkSync(tempPath); // Hapus file sementara karena sudah ada
             } else {
-                // Simpan file jika belum ada (cache miss)
-                fs.writeFileSync(filepath, buffer);
-                console.log(chalk.green(`Media saved to ${filepath}`));
+                // Rename file sementara ke nama hash final
+                fs.renameSync(tempPath, finalFilepath);
+                console.log(chalk.green(`Media saved to ${finalFilepath}`));
             }
 
             return {
                 type: mediaType,
-                path: filepath,
+                path: finalFilepath,
                 mimetype: mimetype
             };
         } catch (e) {

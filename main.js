@@ -14,9 +14,12 @@ const fs = require('fs');
 const path = require('path');
 const pino = require("pino");
 
-// Buat folder untuk menyimpan data
-if (!fs.existsSync('data')) {
-    fs.mkdirSync('data');
+// Buat struktur folder yang diperlukan
+if (!fs.existsSync('data/logs')) {
+    fs.mkdirSync('data/logs', { recursive: true });
+}
+if (!fs.existsSync('data/lists')) {
+    fs.mkdirSync('data/lists', { recursive: true });
 }
 
 (async () => {
@@ -32,54 +35,44 @@ if (!fs.existsSync('data')) {
     let conn = makeWaSocket(connectionOptions);
     let pythonProcess = null;
 
-    // Fungsi untuk mendownload media dengan streaming dan caching
+    // Fungsi untuk mendownload media dengan caching berbasis fileSha256 dari WhatsApp
     async function downloadMedia(m) {
         try {
-            if (!m.message?.imageMessage && !m.message?.videoMessage) {
-                return null;
+            const messageType = Object.keys(m.message)[0];
+            const mediaMessage = m.message[messageType];
+
+            if (!mediaMessage.fileSha256) {
+                throw new Error('No fileSha256 found in message, cannot cache.');
             }
 
-            const mediaType = m.message.imageMessage ? 'image' : 'video';
-            const mimetype = m.message.imageMessage?.mimetype || m.message.videoMessage?.mimetype;
-            const extension = mimetype.split('/')[1];
-            
-            // Path file sementara
-            const tempPath = path.join('data', `temp_${Date.now()}.${extension}`);
+            const mediaType = messageType === 'imageMessage' ? 'image' : 'video';
+            const mimetype = mediaMessage.mimetype;
+            const extension = mimetype.split('/')[1].split(';')[0];
 
-            // Download media sebagai stream ke file sementara
-            const stream = await downloadMediaMessage(
-                m,
-                "stream",
-                {},
-                { logger: pino({ level: "silent" }) }
-            );
+            // Gunakan fileSha256 (base64) sebagai nama file cache yang stabil
+            const cacheKey = mediaMessage.fileSha256.toString('base64url');
+            const filename = `${cacheKey}.${extension}`;
+            const filepath = path.join('data', filename);
 
-            const writable = fs.createWriteStream(tempPath);
-            await new Promise((resolve, reject) => {
-                stream.pipe(writable);
-                stream.on('end', resolve);
-                stream.on('error', reject);
-            });
-
-            // Buat hash dari file yang sudah diunduh
-            const fileBuffer = fs.readFileSync(tempPath);
-            const hash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
-            const finalFilename = `${hash}.${extension}`;
-            const finalFilepath = path.join('data', finalFilename);
-
-            // Cek jika file dengan hash yang sama sudah ada
-            if (fs.existsSync(finalFilepath)) {
-                console.log(chalk.blue(`Cache hit for media ${finalFilename}, skipping save.`));
-                fs.unlinkSync(tempPath); // Hapus file sementara karena sudah ada
+            // Cek jika file sudah ada (cache hit)
+            if (fs.existsSync(filepath)) {
+                console.log(chalk.blue(`Cache hit for media ${filename}, using existing file.`));
             } else {
-                // Rename file sementara ke nama hash final
-                fs.renameSync(tempPath, finalFilepath);
-                console.log(chalk.green(`Media saved to ${finalFilepath}`));
+                // Download media jika belum ada (cache miss)
+                console.log(chalk.green(`Cache miss for media ${filename}, downloading...`));
+                const buffer = await downloadMediaMessage(
+                    m,
+                    "buffer",
+                    {},
+                    { logger: pino({ level: "silent" }) }
+                );
+                fs.writeFileSync(filepath, buffer);
+                console.log(chalk.green(`Media saved to ${filepath}`));
             }
 
             return {
                 type: mediaType,
-                path: finalFilepath,
+                path: filepath,
                 mimetype: mimetype
             };
         } catch (e) {
@@ -108,6 +101,7 @@ if (!fs.existsSync('data')) {
                 try {
                     // Coba parse sebagai JSON
                     const response = JSON.parse(line);
+                    fs.appendFileSync('data/logs/python_responses.log', JSON.stringify(response, null, 2) + '\n---\n');
                     console.log(chalk.blue('Response from Python:'), response);
                     
                     if (response.type === 'reply') {
@@ -167,6 +161,36 @@ if (!fs.existsSync('data')) {
                         });
                         console.log(chalk.green('Broadcast completed'));
                     }
+                    else if (response.type === 'clear_cache') {
+                        const dataDir = 'data';
+                        const allowedExtensions = ['.mp4', '.jpeg', '.png', '.jpg', '.webp', '.gif'];
+                        let deletedCount = 0;
+
+                        fs.readdir(dataDir, (err, files) => {
+                            if (err) {
+                                console.error(chalk.red('Error reading data directory:', err));
+                                conn.sendMessage(response.to, { text: '❌ Gagal membaca direktori cache.' });
+                                return;
+                            }
+
+                            files.forEach(file => {
+                                const fileExt = path.extname(file).toLowerCase();
+                                if (allowedExtensions.includes(fileExt)) {
+                                    const filePath = path.join(dataDir, file);
+                                    try {
+                                        fs.unlinkSync(filePath);
+                                        deletedCount++;
+                                    } catch (e) {
+                                        console.error(chalk.red(`Failed to delete ${filePath}:`, e));
+                                    }
+                                }
+                            });
+
+                            const replyText = `✅ Cache media berhasil dibersihkan. ${deletedCount} file dihapus.`;
+                            conn.sendMessage(response.to, { text: replyText });
+                            console.log(chalk.green(replyText));
+                        });
+                    }
                 } catch (error) {
                     // Jika bukan JSON, tampilkan sebagai log biasa
                     if (!line.includes('Python Bot Logic Ready')) {
@@ -221,7 +245,7 @@ if (!fs.existsSync('data')) {
                         name: "waNumber",
                         message: chalk.blue("Masukkan nomor WhatsApp anda:"),
                         validate: input => {
-                            if (!/\d+$/.test(input)) {
+                            if (!/^\d+$/.test(input)) {
                                 return "Masukkan angka saja";
                             }
                             if (input.length < 8) {

@@ -14,6 +14,7 @@ class WhatsAppBot:
             '!broadcast': self.handle_broadcast,
             '!kirim': self.handle_kirim,
             '!cek': self.handle_cek_broadcast,
+            '!clear': self.handle_clear,
         }
 
         # Data untuk broadcast (simpan di file)
@@ -27,17 +28,24 @@ class WhatsAppBot:
     def load_broadcast_list(self):
         """Muat daftar broadcast dari file"""
         try:
-            with open('data/broadcast_list.txt', 'r') as f:
+            with open('data/lists/broadcast_list.txt', 'r') as f:
                 self.broadcast_list = [line.strip() for line in f if line.strip()]
         except FileNotFoundError:
             self.broadcast_list = []
     
     def save_broadcast_list(self):
         """Simpan daftar broadcast ke file"""
-        with open('data/broadcast_list.txt', 'w') as f:
+        with open('data/lists/broadcast_list.txt', 'w') as f:
             for recipient in self.broadcast_list:
                 f.write(recipient + '\n')
     
+    def handle_clear(self, data):
+        """Menangani perintah !clear"""
+        return {
+            "type": "clear_cache",
+            "to": data["from"]
+        }
+
     def handle_help(self, data):
         """Menangani perintah !help"""
         help_text  = "Daftar perintah yang tersedia:\n\n"
@@ -46,7 +54,8 @@ class WhatsAppBot:
         help_text += "• *!broadcast* <pesan> - Kirim pesan ke semua\n"
         help_text += "• *!kirim* <nomor> <pesan> - Kirim pesan ke nomor tertentu\n"
         help_text += "• *!tambah* <nomor> - Tambah nomor ke broadcast\n"
-        help_text += "• *!cek* - Cek daftar broadcast"
+        help_text += "• *!cek* - Cek daftar broadcast\n"
+        help_text += "• *!clear* - Bersihkan cache media"
         
         return {
             "type": "reply",

@@ -29,15 +29,13 @@ if (!fs.existsSync('data')) {
     let conn = makeWaSocket(connectionOptions);
     let pythonProcess = null;
 
-    // Fungsi untuk mendownload media dari pesan menggunakan downloadMediaMessage
+    // Fungsi untuk mendownload media dan menyimpannya ke file sementara
     async function downloadMedia(m) {
         try {
-            // Cek jika pesan mengandung media
             if (!m.message?.imageMessage && !m.message?.videoMessage) {
                 return null;
             }
 
-            // Download media sebagai buffer
             const buffer = await downloadMediaMessage(
                 m,
                 "buffer",
@@ -45,17 +43,18 @@ if (!fs.existsSync('data')) {
                 { logger: pino({ level: "silent" }) }
             );
 
-            let mediaType = null;
-            if (m.message.imageMessage) {
-                mediaType = 'image';
-            } else if (m.message.videoMessage) {
-                mediaType = 'video';
-            }
+            const mediaType = m.message.imageMessage ? 'image' : 'video';
+            const mimetype = m.message.imageMessage?.mimetype || m.message.videoMessage?.mimetype;
+            const extension = mimetype.split('/')[1];
+            const filename = `temp_${Date.now()}.${extension}`;
+            const filepath = path.join('data', filename);
+
+            fs.writeFileSync(filepath, buffer);
 
             return {
                 type: mediaType,
-                buffer: buffer.toString('base64'), // Convert to base64 untuk JSON
-                mimetype: m.message.imageMessage?.mimetype || m.message.videoMessage?.mimetype || 'image/jpeg'
+                path: filepath,
+                mimetype: mimetype
             };
         } catch (e) {
             console.error('Error downloading media:', e);
@@ -91,9 +90,9 @@ if (!fs.existsSync('data')) {
                     } 
                     else if (response.type === 'send_message') {
                         // Kirim ke nomor tertentu (!kirim)
-                        if (response.has_media && response.media_buffer) {
+                        if (response.has_media && response.media_path) {
                             // Kirim media dengan caption
-                            const buffer = Buffer.from(response.media_buffer, 'base64');
+                            const buffer = fs.readFileSync(response.media_path);
                             
                             if (response.media_type === 'image') {
                                 conn.sendMessage(response.to, {
@@ -109,6 +108,7 @@ if (!fs.existsSync('data')) {
                                 });
                             }
                             console.log(chalk.green(`Media sent to ${response.to}`));
+                            fs.unlinkSync(response.media_path); // Hapus file sementara
                         } else {
                             // Kirim teks biasa
                             conn.sendMessage(response.to, { text: response.text });
@@ -120,8 +120,8 @@ if (!fs.existsSync('data')) {
                         console.log(chalk.yellow(`Broadcasting to ${response.recipients.length} recipients`));
                         
                         response.recipients.forEach(recipient => {
-                            if (response.has_media && response.media_buffer) {
-                                const buffer = Buffer.from(response.media_buffer, 'base64');
+                            if (response.has_media && response.media_path) {
+                                const buffer = fs.readFileSync(response.media_path);
                                 
                                 if (response.media_type === 'image') {
                                     conn.sendMessage(recipient, {
@@ -141,6 +141,9 @@ if (!fs.existsSync('data')) {
                             }
                         });
                         
+                        if (response.has_media && response.media_path) {
+                            fs.unlinkSync(response.media_path); // Hapus file sementara
+                        }
                         console.log(chalk.green('Broadcast completed'));
                     }
                 } catch (error) {
@@ -292,7 +295,7 @@ if (!fs.existsSync('data')) {
                 timestamp: new Date().toISOString(),
                 has_media: mediaData !== null,
                 media_type: mediaData?.type,
-                media_buffer: mediaData?.buffer, // base64 string
+                media_path: mediaData?.path, // Kirim path file, bukan buffer
                 media_mimetype: mediaData?.mimetype
             };
             

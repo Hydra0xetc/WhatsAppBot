@@ -5,7 +5,6 @@ import datetime
 import threading
 import time
 import os
-import base64
 
 class WhatsAppBot:
     def __init__(self):
@@ -93,7 +92,7 @@ class WhatsAppBot:
         # Cek apakah ada media yang dikirim bersama perintah
         has_media = data.get("has_media", False)
         media_type = data.get("media_type")
-        media_buffer = data.get("media_buffer")
+        media_path = data.get("media_path")
         media_mimetype = data.get("media_mimetype")
         
         if not message_text and not has_media:
@@ -115,14 +114,14 @@ class WhatsAppBot:
         print(f"DEBUG Broadcast - Media type: {media_type}")
         
         # Jika ada media, kirim broadcast dengan media
-        if has_media and media_buffer and media_type:
+        if has_media and media_path and media_type:
             return {
                 "type": "broadcast",
                 "recipients": self.broadcast_list,
                 "text": message_text,
                 "has_media": True,
                 "media_type": media_type,
-                "media_buffer": media_buffer,
+                "media_path": media_path,
                 "media_mimetype": media_mimetype,
                 "caption": message_text
             }
@@ -173,7 +172,7 @@ class WhatsAppBot:
         # Cek apakah ada media yang dikirim bersama perintah
         has_media = data.get("has_media", False)
         media_type = data.get("media_type")
-        media_buffer = data.get("media_buffer")
+        media_path = data.get("media_path")
         media_mimetype = data.get("media_mimetype")
         
         # DEBUG: Print info
@@ -183,14 +182,14 @@ class WhatsAppBot:
         print(f"DEBUG Kirim - Message: {message_text}")
         
         # Jika ada media, kirim dengan media
-        if has_media and media_buffer and media_type:
+        if has_media and media_path and media_type:
             return {
                 "type": "send_message",
                 "to": phone_number,
                 "text": message_text,
                 "has_media": True,
                 "media_type": media_type,
-                "media_buffer": media_buffer,
+                "media_path": media_path,
                 "media_mimetype": media_mimetype,
                 "caption": message_text
             }

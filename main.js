@@ -4,7 +4,8 @@ const {
     default: makeWaSocket,
     useMultiFileAuthState,
     DisconnectReason,
-    downloadMediaMessage
+    downloadMediaMessage,
+    jidNormalizedUser
 } = require("@whiskeysockets/baileys");
 const chalk = require("chalk");
 const qrcode = require("qrcode-terminal");
@@ -19,6 +20,7 @@ if (!fs.existsSync('data')) {
 }
 
 (async () => {
+    let myJid = null;
     const { state, saveCreds } = await useMultiFileAuthState("auth");
 
     const connectionOptions = {
@@ -237,6 +239,7 @@ if (!fs.existsSync('data')) {
         }
 
         if (connection == "open") {
+            myJid = conn.user.id;
             console.log(
                 chalk.greenBright("Connected as: " + chalk.yellow(conn.user.id))
             );
@@ -282,7 +285,11 @@ if (!fs.existsSync('data')) {
         // --- listener pesan masuk ---
         conn.ev.on("messages.upsert", async ({ messages }) => {
             const m = messages[0];
-            if (!m.message) return;
+
+            // Abaikan pesan jika tidak ada isi, atau jika pesan dari bot tapi bukan untuk bot
+            if (!m.message || (m.key.fromMe && jidNormalizedUser(m.key.remoteJid) !== jidNormalizedUser(myJid))) {
+                return;
+            }
 
             const sender = m.key.remoteJid; // id pengirim
             const text = m.message.conversation || 
@@ -290,6 +297,12 @@ if (!fs.existsSync('data')) {
                         m.message.imageMessage?.caption ||
                         m.message.videoMessage?.caption ||
                         "";
+
+            // Hanya proses pesan yang diawali dengan '!'
+            if (!text.startsWith('!')) {
+                return;
+            }
+
             const name = m.pushName || "Unknown";
 
             // Cek jika pesan mengandung media

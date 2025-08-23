@@ -65,7 +65,7 @@ class WhatsAppBot:
         
         list_text = "*Daftar nomor dalam broadcast:*\n\n"
         for i, recipient in enumerate(self.broadcast_list, 1):
-            list_text += f"{i}. {recipient.replace('@s.whatsapp.net', '')}"
+            list_text += f"{i}. {recipient.replace('@s.whatsapp.net', '')}\n"
             
         return {
             "type": "reply",

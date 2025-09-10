@@ -4,3 +4,4 @@ node_modules
 data
 test.py
 test.js
+.env

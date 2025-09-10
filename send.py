@@ -5,6 +5,10 @@ import datetime
 import threading
 import time
 import os
+import subprocess
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class WhatsAppBot:
     def __init__(self):
@@ -15,6 +19,7 @@ class WhatsAppBot:
             '!kirim': self.handle_kirim,
             '!cek': self.handle_cek_broadcast,
             '!clear': self.handle_clear,
+            '!ai': self.handle_ai,
         }
 
         # Data untuk broadcast (simpan di file)
@@ -46,6 +51,114 @@ class WhatsAppBot:
             "to": data["from"]
         }
 
+    def handle_ai(self, data):
+        """Menangani perintah !ai menggunakan curl"""
+        prompt = data["text"].replace("!ai", "").strip()
+        if not prompt:
+            return {
+                "type": "reply",
+                "to": data["from"],
+                "text": "Silakan berikan prompt setelah perintah !ai"
+            }
+
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            return {
+                "type": "reply",
+                "to": data["from"],
+                "text": "GEMINI_API_KEY tidak ditemukan di file .env Anda."
+            }
+
+        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+        headers = {
+            'Content-Type': 'application/json',
+            'X-goog-api-key': api_key
+        }
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {
+                            "text": prompt
+                        }
+                    ]
+                }
+            ]
+        }
+
+        try:
+            response = subprocess.run(
+                ['curl', '-s', url, '-X', 'POST', '-H', f"Content-Type: {headers['Content-Type']}", '-H', f"X-goog-api-key: {headers['X-goog-api-key']}", '-d', json.dumps(payload)],
+                capture_output=True, text=True, check=True
+            )
+            response_json = json.loads(response.stdout)
+
+            if 'error' in response_json:
+                error_message = response_json['error'].get('message', 'Terjadi kesalahan yang tidak diketahui')
+                if 'API key' in error_message:
+                    return {
+                        "type": "reply",
+                        "to": data["from"],
+                        "text": f"⚠️ API Key Anda tidak valid atau kedaluwarsa. Silakan periksa kembali API Key Anda di Google AI Studio.\n\nError: {error_message}"
+                    }
+                else:
+                    return {
+                        "type": "reply",
+                        "to": data["from"],
+                        "text": f"Terjadi kesalahan dari Gemini API: {error_message}"
+                    }
+
+            # Ekstrak teks dari respons Gemini
+            generated_text = ""
+            if 'candidates' in response_json and len(response_json['candidates']) > 0:
+                candidate = response_json['candidates'][0]
+                if 'content' in candidate and 'parts' in candidate['content']:
+                    for part in candidate['content']['parts']:
+                        if 'text' in part:
+                            generated_text = part['text']
+                            break  # Ambil teks pertama yang ditemukan
+            
+            if not generated_text:
+                # Jika tidak ada teks yang ditemukan, berikan respons error yang lebih bersih
+                return {
+                    "type": "reply",
+                    "to": data["from"],
+                    "text": "❌ Maaf, saya tidak dapat menghasilkan respons untuk permintaan ini. Silakan coba dengan prompt yang berbeda."
+                }
+
+            # Format teks untuk WhatsApp
+            # 1. Ganti format bold dari ** menjadi *
+            generated_text = generated_text.replace('**', '*')
+            
+            # 2. Format blok kode dengan backticks
+            def format_code_blocks(text):
+                # Tangani blok kode dengan bahasa spesifik
+                text = re.sub(r"```(\w+)\n(.*?)```", r"*\1:*\n`\2`", text, flags=re.DOTALL)
+                # Tangani blok kode tanpa bahasa
+                text = re.sub(r"```\n(.*?)```", r"`\1`", text, flags=re.DOTALL)
+                return text
+            
+            generated_text = format_code_blocks(generated_text)
+            
+            return {
+                "type": "reply",
+                "to": data["from"],
+                "text": generated_text
+            }
+            
+        except subprocess.CalledProcessError as e:
+            return {
+                "type": "reply",
+                "to": data["from"],
+                "text": f"❌ Terjadi kesalahan saat menghubungi Gemini API: {e.stderr}"
+            }
+        except (KeyError, IndexError, json.JSONDecodeError) as e:
+            return {
+                "type": "reply",
+                "to": data["from"],
+                "text": "❌ Terjadi kesalahan dalam memproses respons dari AI. Silakan coba lagi nanti."
+            }
+
     def handle_help(self, data):
         """Menangani perintah !help"""
         help_text  = "Daftar perintah yang tersedia:\n\n"
@@ -55,13 +168,16 @@ class WhatsAppBot:
         help_text += "• *!kirim* <nomor> <pesan> - Kirim pesan ke nomor tertentu\n"
         help_text += "• *!tambah* <nomor> - Tambah nomor ke broadcast\n"
         help_text += "• *!cek* - Cek daftar broadcast\n"
-        help_text += "• *!clear* - Bersihkan cache media"
+        help_text += "• *!clear* - Bersihkan cache media\n"
+        help_text += "• *!ai* <prompt> - Berinteraksi dengan AI"
         
         return {
             "type": "reply",
             "to": data["from"],
             "text": help_text
         }
+
+
     
     def handle_cek_broadcast(self, data):
         """Menangani perintah !cek_broadcast"""

@@ -2,8 +2,7 @@ import json
 import sys
 import re
 import datetime
-import threading
-import time
+
 import os
 import subprocess
 from dotenv import load_dotenv
@@ -380,7 +379,7 @@ class WhatsAppBot:
 def main():
     bot = WhatsAppBot()
     
-    print("Python Bot Logic Ready. Waiting for messages...")
+    print("Waiting for messages...")
     
     # Baca dari STDIN (dikirim dari JavaScript)
     for line in sys.stdin:

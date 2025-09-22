@@ -59,16 +59,16 @@ class WhatsAppBot:
 
     def handle_help(self, data):
         help_text = "Daftar perintah yang tersedia:\n\n"
-        help_text += "• `!help` - Menampilkan bantuan\n"
-        help_text += "• `!time` - Waktu saat ini\n"
-        help_text += "• `!broadcast` <pesan> - Mulai broadcast baru\n"
-        help_text += "• `!lanjutkan` - Lanjutkan broadcast yang tertunda\n"
-        help_text += "• `!batalkan` - Batalkan broadcast yang tertunda\n"
-        help_text += "• `!kirim` <nomor> <pesan> - Kirim pesan ke nomor tertentu\n"
-        help_text += "• `!tambah` <nomor|txt> - Tambah nomor dari argumen atau file nomor.txt\n"
-        help_text += "• `!cek` - Cek daftar broadcast\n"
-        help_text += "• `!clear` - Bersihkan cache media\n"
-        help_text += "• `!ai` <prompt> - Berinteraksi dengan AI"
+        help_text += "`!help` - Menampilkan bantuan\n"
+        help_text += "`!time` - Waktu saat ini\n"
+        help_text += "`!broadcast` <pesan> - Mulai broadcast baru\n"
+        help_text += "`!lanjutkan` - Lanjutkan broadcast yang tertunda\n"
+        help_text += "`!batalkan` - Batalkan broadcast yang tertunda\n"
+        help_text += "`!kirim` <nomor> <pesan> - Kirim pesan ke nomor tertentu\n"
+        help_text += "`!tambah` <nomor|txt> - Tambah nomor dari argumen atau file nomor.txt\n"
+        help_text += "`!cek` - Cek daftar broadcast\n"
+        help_text += "`!clear` - Bersihkan cache media\n"
+        help_text += "`!ai` <prompt> - Berinteraksi dengan AI"
 
         return {
             "type": "reply",
@@ -182,10 +182,16 @@ class WhatsAppBot:
 
             added_count = 0
             duplicate_count = 0
+            invalid_count = 0
             for num in numbers_from_file:
                 phone_number = re.sub(r'[^\d]', '', num)
                 if phone_number.startswith('0'):
                     phone_number = '62' + phone_number[1:]
+
+                if not phone_number.startswith('62'):
+                    invalid_count += 1
+                    continue
+
                 if not phone_number.endswith('@s.whatsapp.net'):
                     phone_number += '@s.whatsapp.net'
                 
@@ -201,13 +207,21 @@ class WhatsAppBot:
             return {
                 "type": "reply",
                 "to": data["from"],
-                "text": f"✅ Berhasil dari `nomor.txt`:\n- {added_count} nomor baru ditambahkan.\n- {duplicate_count} nomor duplikat dilewati."
+                "text": f"✅ Berhasil dari `nomor.txt`:\n- {added_count} nomor baru ditambahkan.\n- {duplicate_count} nomor duplikat dilewati.\n- {invalid_count} nomor tidak valid dilewati."
             }
         else:
             phone_number = argument
             phone_number = re.sub(r'[^\d]', '', phone_number)
             if phone_number.startswith('0'):
                 phone_number = '62' + phone_number[1:]
+
+            if not phone_number.startswith('62'):
+                return {
+                    "type": "reply",
+                    "to": data["from"],
+                    "text": f"❌ Nomor '{argument}' tidak valid. Harus nomor Indonesia (diawali 62)."
+                }
+
             if not phone_number.endswith('@s.whatsapp.net'):
                 phone_number += '@s.whatsapp.net'
             

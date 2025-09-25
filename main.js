@@ -39,6 +39,19 @@ if (!fs.existsSync('data/lists')) {
 
   const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+  function getFormattedTimestamp() {
+    const now = new Date();
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const dayName = days[now.getDay()];
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    return `[${dayName}, ${day}-${month}-${year} ${hours}:${minutes}:${seconds}]`;
+  }
+
   async function executeBroadcast() {
     if (isExecutingBroadcast) {
       console.log(chalk.yellow('Broadcast already in progress.'));
@@ -90,7 +103,7 @@ if (!fs.existsSync('data/lists')) {
 
         if (messagePromise) {
           await messagePromise;
-          const logMessage = `[BERHASIL] mengirim pesan ke: ${recipient}`;
+          const logMessage = `${getFormattedTimestamp()} [BERHASIL] mengirim pesan ke: ${recipient}`;
           console.log(chalk.green(logMessage));
           fs.appendFileSync('broadcast.log', logMessage + '\n');
 
@@ -105,7 +118,7 @@ if (!fs.existsSync('data/lists')) {
         await sleep(delay);
 
       } catch (e) {
-        const logMessage = `[GAGAL] mengirim pesan ke: ${recipient}`;
+        const logMessage = `${getFormattedTimestamp()} [GAGAL] mengirim pesan ke: ${recipient}`;
         console.error(chalk.red(logMessage), e);
         fs.appendFileSync('broadcast.log', logMessage + ` - Error: ${e}\n`);
         console.error(chalk.red.bold('\n [•] BROADCAST DIHENTIKAN KARENA KESALAHAN PENGIRIMAN.'));
@@ -137,7 +150,7 @@ if (!fs.existsSync('data/lists')) {
 
       if (!fs.existsSync(filepath)) {
         console.log(chalk.green(`Downloading media to ${filepath}...`));
-        const buffer = await downloadMediaMessage(m, "buffer", {}, { logger: pino({ level: "silent" }) });
+        const buffer = await downloadMediaMessage(m, "buffer", {}, { logger: pino({ level: "debug" }) });
         fs.writeFileSync(filepath, buffer);
       }
       return { type: mediaType, path: filepath, mimetype: mediaMessage.mimetype };

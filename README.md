@@ -4,7 +4,6 @@ Bot WhatsApp ini menggunakan `@whiskeysockets/baileys` untuk terhubung ke WhatsA
 
 ## Fitur Utama
 
-- **Koneksi Stabil**: Menggunakan Baileys untuk koneksi ke WhatsApp Web.
 - **Login Mudah**: Mendukung login melalui kode QR dan kode penyandingan (pairing code).
 - **Logika Terpisah**: Proses koneksi (Node.js) dan logika perintah (Python) berjalan terpisah, memungkinkan pengembangan yang lebih mudah.
 - **Manajemen Broadcast**:

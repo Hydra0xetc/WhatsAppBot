@@ -8,7 +8,7 @@
     "dev": "nodemon main.js"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "^6.4.0",
+    "@whiskeysockets/baileys": "^7.0.0-rc.6",
     "chalk": "^4.1.2",
     "inquirer": "^8.2.4",
     "pino": "^8.14.1",
